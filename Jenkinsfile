@@ -7,8 +7,8 @@ pipeline {
     }
     
     environment {
-        DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials')
-        DOCKERHUB_USERNAME = "oussama100"          // 🔁 Mets ton username Docker Hub
+       
+        DOCKERHUB_USERNAME = "oussa100"          // 🔁 Mets ton username Docker Hub
         IMAGE_NAME = "student-management"          // 🔁 Mets le nom de ton image
     }
     
