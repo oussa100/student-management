@@ -6,6 +6,12 @@ pipeline {
         jdk 'JAVA_HOME'
     }
     
+    environment {
+        DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials')
+        DOCKERHUB_USERNAME = "oussama100"          // 🔁 Mets ton username Docker Hub
+        IMAGE_NAME = "student-management"          // 🔁 Mets le nom de ton image
+    }
+    
     stages {
         stage('Checkout') {
             steps {
@@ -28,12 +34,9 @@ pipeline {
         
         stage('Archive JAR') {
             steps {
-                // Archive le JAR
                 archiveArtifacts 'target/*.jar'
                 
-                // Affichage SIMPLIFIÉ sans findFiles
                 script {
-                    // Compte le nombre de JAR
                     def jarCount = sh(
                         script: 'find target -name "*.jar" -type f | wc -l',
                         returnStdout: true
@@ -41,7 +44,6 @@ pipeline {
                     
                     echo "🎉 JAR GÉNÉRÉ : ${jarCount} fichier(s)"
                     
-                    // Liste les fichiers JAR
                     def jarFiles = sh(
                         script: 'ls -la target/*.jar',
                         returnStdout: true
@@ -52,15 +54,41 @@ pipeline {
                 }
             }
         }
+        
+        /* 🔥🔥🔥 AJOUT DOCKER ICI 🔥🔥🔥 */
+        
+        stage('Build Docker Image') {
+            steps {
+                sh """
+                    docker build -t $DOCKERHUB_USERNAME/$IMAGE_NAME:latest .
+                """
+            }
+        }
+        
+        stage('Login to Docker Hub') {
+            steps {
+                sh """
+                    echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin
+                """
+            }
+        }
+        
+        stage('Push Docker Image') {
+            steps {
+                sh """
+                    docker push $DOCKERHUB_USERNAME/$IMAGE_NAME:latest
+                """
+            }
+        }
     }
     
     post {
         success {
-            echo '🚀 SUCCÈS ! Votre application Spring Boot est construite.'
-            echo '📦 Le JAR est disponible dans "Artifacts du build"'
+            echo '🚀 SUCCÈS ! Application Spring Boot construite.'
+            echo '📦 JAR archivé + Image Docker envoyée sur Docker Hub.'
         }
         failure {
-            echo '❌ Échec - Vérifiez la configuration'
+            echo '❌ Échec - Vérifiez la configuration.'
         }
     }
 }
