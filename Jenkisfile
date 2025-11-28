@@ -28,36 +28,27 @@ pipeline {
         
         stage('Archive JAR') {
             steps {
+                // Archive le JAR
                 archiveArtifacts 'target/*.jar'
                 
-                // SOLUTION ALTERNATIVE SANS findFiles
+                // Affichage SIMPLIFIÉ sans findFiles
                 script {
-                    // Méthode 1: Utiliser sh pour lister les fichiers
-                    def jarList = sh(
+                    // Compte le nombre de JAR
+                    def jarCount = sh(
                         script: 'find target -name "*.jar" -type f | wc -l',
                         returnStdout: true
                     ).trim()
                     
-                    echo "🎉 JAR GÉNÉRÉ : ${jarList} fichier(s)"
+                    echo "🎉 JAR GÉNÉRÉ : ${jarCount} fichier(s)"
                     
-                    // Méthode 2: Lister les fichiers avec ls
+                    // Liste les fichiers JAR
                     def jarFiles = sh(
-                        script: 'ls -la target/*.jar 2>/dev/null || echo "Aucun JAR trouvé"',
+                        script: 'ls -la target/*.jar',
                         returnStdout: true
                     ).trim()
                     
-                    echo "📦 Fichiers JAR :"
+                    echo "📦 Contenu du dossier target/:"
                     echo "${jarFiles}"
-                    
-                    // Méthode 3: Alternative Groovy native
-                    def files = findFiles(glob: 'target/*.jar')
-                    if (files) {
-                        files.each { file ->
-                            echo "📦 ${file.name} (${file.length()} bytes)"
-                        }
-                    } else {
-                        echo "❌ Aucun fichier JAR trouvé dans target/"
-                    }
                 }
             }
         }
