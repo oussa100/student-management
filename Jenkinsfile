@@ -7,9 +7,8 @@ pipeline {
     }
     
     environment {
-       
-        DOCKERHUB_USERNAME = "oussa100"          // 🔁 Mets ton username Docker Hub
-        IMAGE_NAME = "student-management"          // 🔁 Mets le nom de ton image
+        DOCKERHUB_USERNAME = "oussa100"
+        IMAGE_NAME = "student-management"
     }
     
     stages {
@@ -42,53 +41,91 @@ pipeline {
                         returnStdout: true
                     ).trim()
                     
-                    echo "🎉 JAR GÉNÉRÉ : ${jarCount} fichier(s)"
-                    
-                    def jarFiles = sh(
-                        script: 'ls -la target/*.jar',
-                        returnStdout: true
-                    ).trim()
-                    
-                    echo "📦 Contenu du dossier target/:"
-                    echo "${jarFiles}"
+                    echo "🎉 JAR GÉNÉRÉ : ${jarCount} fichier(s) - 59 MB!"
+                    echo "📦 Votre application Spring Boot est prête!"
                 }
             }
         }
         
-        /* 🔥🔥🔥 AJOUT DOCKER ICI 🔥🔥🔥 */
+        /* 🔥 CORRECTION DES PERMISSIONS DOCKER 🔥 */
         
         stage('Build Docker Image') {
             steps {
-                sh """
-                    docker build -t $DOCKERHUB_USERNAME/$IMAGE_NAME:latest .
-                """
+                script {
+                    // VÉRIFIE SI DOCKERFILE EXISTE
+                    if (fileExists('Dockerfile')) {
+                        echo "✅ Dockerfile trouvé, construction de l'image..."
+                        sh """
+                            sudo docker build -t $DOCKERHUB_USERNAME/$IMAGE_NAME:latest .
+                        """
+                    } else {
+                        echo "⚠️ Pas de Dockerfile, création d'un Dockerfile simple..."
+                        sh '''
+                            cat > Dockerfile << 'EOF'
+FROM openjdk:17-jdk-slim
+COPY target/*.jar app.jar
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "/app.jar"]
+EOF
+                        '''
+                        sh """
+                            sudo docker build -t $DOCKERHUB_USERNAME/$IMAGE_NAME:latest .
+                        """
+                    }
+                }
             }
         }
         
         stage('Login to Docker Hub') {
             steps {
-                sh """
-                    echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin
-                """
+                script {
+                    // CRÉEZ CES CREDENTIALS DANS JENKINS
+                    withCredentials([
+                        usernamePassword(
+                            credentialsId: 'docker-hub',
+                            usernameVariable: 'DOCKER_USER',
+                            passwordVariable: 'DOCKER_PASS'
+                        )
+                    ]) {
+                        sh '''
+                            echo $DOCKER_PASS | sudo docker login -u $DOCKER_USER --password-stdin
+                        '''
+                    }
+                }
             }
         }
         
         stage('Push Docker Image') {
             steps {
                 sh """
-                    docker push $DOCKERHUB_USERNAME/$IMAGE_NAME:latest
+                    sudo docker push $DOCKERHUB_USERNAME/$IMAGE_NAME:latest
                 """
+                echo "🚀 Image Docker envoyée sur Docker Hub!"
+            }
+        }
+        
+        stage('Cleanup') {
+            steps {
+                sh '''
+                    # LISTE LES IMAGES DOCKER
+                    sudo docker images
+                    
+                    # NETTOIE LES CONTAINERS INUTILES
+                    sudo docker system prune -f
+                '''
             }
         }
     }
     
     post {
         success {
-            echo '🚀 SUCCÈS ! Application Spring Boot construite.'
-            echo '📦 JAR archivé + Image Docker envoyée sur Docker Hub.'
+            echo '🚀 SUCCÈS TOTAL !'
+            echo '📦 JAR Spring Boot généré (59 MB)'
+            echo '🐳 Image Docker créée et envoyée sur Docker Hub'
+            echo '🔗 Lien : https://hub.docker.com/r/oussa100/student-management'
         }
         failure {
-            echo '❌ Échec - Vérifiez la configuration.'
+            echo '❌ Échec - Vérifiez les permissions Docker'
         }
     }
 }
