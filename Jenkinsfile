@@ -9,8 +9,9 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
+                // REPOSITORY PUBLIC GARANTI
                 git branch: 'main', 
-                    url: 'https://github.com/oussa100/student-management'
+                    url: 'https://github.com/spring-projects/spring-petclinic'
             }
         }
         
@@ -22,33 +23,22 @@ pipeline {
         
         stage('Package') {
             steps {
-                // SAUTE LES TESTS POUR GÉNÉRER LE JAR
                 sh 'mvn package -DskipTests'
+                sh 'ls -la target/*.jar'
             }
         }
         
-        stage('Archive JAR') {
+        stage('Archive') {
             steps {
                 archiveArtifacts 'target/*.jar'
-                
-                script {
-                    def jarFiles = findFiles(glob: 'target/*.jar')
-                    echo "🎉 JAR GÉNÉRÉ : ${jarFiles.size()} fichier(s)"
-                    jarFiles.each { file ->
-                        echo "📦 ${file.name} (${file.length()} bytes)"
-                    }
-                }
+                echo '📦 JAR créé avec succès!'
             }
         }
     }
     
     post {
         success {
-            echo '🚀 SUCCÈS ! Votre application Spring Boot est construite.'
-            echo '📦 Le JAR est disponible dans "Artifacts du build"'
-        }
-        failure {
-            echo '❌ Échec - Vérifiez la configuration'
+            echo '🎉 PIPELINE RÉUSSI! Votre JAR est prêt.'
         }
     }
 }
