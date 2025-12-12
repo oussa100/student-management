@@ -1,99 +1,95 @@
 pipeline {
     agent any
-    
-    // Éviter les problèmes de redémarrage
-    options {
-        timeout(time: 30, unit: 'MINUTES')
-        disableConcurrentBuilds()
-        retry(2)
-    }
-    
-    tools {
-        maven 'M2_HOME'
-        jdk 'JAVA_HOME'
-    }
-    
-    environment {
-        // Variables SonarQube
-        SONAR_HOST_URL = 'http://localhost:9000'
-        SONAR_PROJECT_KEY = 'spring-petclinic-jenkins'
-        // Le token sera injecté via withSonarQubeEnv
-    }
-    
+  
     stages {
-        stage('Checkout') {
+        stage('Recuperation du code') {
             steps {
-                // Simple checkout sans duplication
-                git branch: 'main', 
-                    url: 'https://github.com/spring-projects/spring-petclinic'
+                git branch: 'master', 
+                    url: 'https://github.com/jacemShady/projet-deveops.git'
             }
         }
         
-        stage('Build') {
+        stage('Compilation Maven') {
+            steps {
+                sh 'mvn clean package'
+            }
+        }
+
+        stage('Archive Artifacts') {
+            steps {
+                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+            }
+        }
+
+        stage('Start SonarQube') {
             steps {
                 sh '''
-                echo "🚀 Démarrage du build..."
-                mvn clean compile -DskipTests
+                    echo "Starting SonarQube container..."
+                    docker start sonarqube || docker run -d --name sonarqube -p 9000:9000 sonarqube:lts
+        
+                    echo "Waiting for SonarQube to be ready..."
+        
+                    # wait up to 120 seconds
+                    for i in {1..40}; do
+                        if curl -s http://localhost:9000/api/system/status | grep -q '"status":"UP"'; then
+                            echo "SonarQube is UP!"
+                            break
+                        fi
+                        echo "Still starting... ($i/40)"
+                        sleep 3
+                    done
                 '''
             }
         }
-        
-        stage('Tests') {
+
+        stage('Analyse SonarQube') {
             steps {
-                sh '''
-                echo "🧪 Exécution des tests..."
-                mvn test -DskipTests=false || echo "⚠️ Certains tests ont échoué mais on continue"
-                '''
-            }
-        }
-        
-        stage('SonarQube Analysis') {
-            steps {
-                script {
-                    echo "🔍 Analyse SonarQube en cours..."
-                    withSonarQubeEnv('SonarQube') {
-                        sh """
-                        mvn sonar:sonar \
-                          -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                          -Dsonar.projectName='Spring PetClinic' \
-                          -Dsonar.host.url=${SONAR_HOST_URL} \
-                          -Dsonar.java.coveragePlugin=jacoco \
-                          -Dsonar.jacoco.reportPaths=target/jacoco.exec
-                        """
-                    }
+                withSonarQubeEnv('sonar') {
+                    sh 'mvn sonar:sonar -Dsonar.projectKey=studentmanagement -Dsonar.host.url=http://localhost:9000'
                 }
             }
         }
         
-        stage('Package') {
+        stage('Creation image Docker') {
             steps {
-                sh '''
-                echo "📦 Création du package..."
-                mvn package -DskipTests
-                ls -la target/*.jar
-                '''
+                sh 'docker build -t slm334/studentmanagement .'
             }
         }
         
-        stage('Archive') {
+        
+        stage('Publication sur Docker Hub') {
             steps {
-                archiveArtifacts 'target/*.jar'
-                echo '✅ JAR archivé avec succès!'
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_TOKEN')]) {
+                    sh '''
+                        echo "$DOCKER_TOKEN" | docker login -u "$DOCKER_USER" --password-stdin
+                        docker push slm334/studentmanagement
+                    '''
+                }
             }
         }
+
+        
+        stage('Deploiement') {
+            steps {
+                sh 'docker stop studentmanagement-app || true'
+                sh 'docker rm studentmanagement-app || true'
+                sh 'docker run -d -p 8081:8080 --name studentmanagement-app slm334/studentmanagement'
+            }
+        }
+        
     }
     
     post {
-        always {
-            echo "🏁 Build terminé - Nettoyage..."
-            // Nettoyer si nécessaire
-        }
         success {
-            echo '🎉 PIPELINE RÉUSSI! Analyse SonarQube complète.'
+            mail to: 'guesmijacem8@gmail.com',
+                 subject: 'Build Successful',
+                 body: 'La build a réussi.'
         }
         failure {
-            echo '❌ PIPELINE ÉCHOUÉ!'
-            // Options de notification
+            mail to: 'guesmijacem8@gmail.com',
+                 subject: 'Build Failed',
+                 body: 'La build a échoué.'
         }
     }
+
 }
