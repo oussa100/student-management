@@ -5,7 +5,7 @@ pipeline {
         stage('Recuperation du code') {
             steps {
                 git branch: 'master', 
-                    url: 'https://github.com/jacemShady/projet-deveops.git'
+                    url: 'https://github.com/oussa100/student-management'
             }
         }
         
@@ -81,12 +81,12 @@ pipeline {
     
     post {
         success {
-            mail to: 'guesmijacem8@gmail.com',
+            mail to: 'oussamabani14@gmail.com',
                  subject: 'Build Successful',
                  body: 'La build a réussi.'
         }
         failure {
-            mail to: 'guesmijacem8@gmail.com',
+            mail to: 'oussamabani14@gmail.com',
                  subject: 'Build Failed',
                  body: 'La build a échoué.'
         }
