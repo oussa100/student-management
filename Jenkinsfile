@@ -4,7 +4,7 @@ pipeline {
     stages {
         stage('Recuperation du code') {
             steps {
-                git branch: 'master', 
+                git branch: 'main', 
                     url: 'https://github.com/oussa100/student-management'
             }
         }
@@ -52,7 +52,7 @@ pipeline {
         
         stage('Creation image Docker') {
             steps {
-                sh 'docker build -t slm334/studentmanagement .'
+                sh 'docker build -t oussa101/studentmanagement .'
             }
         }
         
@@ -62,7 +62,7 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_TOKEN')]) {
                     sh '''
                         echo "$DOCKER_TOKEN" | docker login -u "$DOCKER_USER" --password-stdin
-                        docker push slm334/studentmanagement
+                        docker push oussa101/studentmanagement
                     '''
                 }
             }
@@ -73,7 +73,7 @@ pipeline {
             steps {
                 sh 'docker stop studentmanagement-app || true'
                 sh 'docker rm studentmanagement-app || true'
-                sh 'docker run -d -p 8081:8080 --name studentmanagement-app slm334/studentmanagement'
+                sh 'docker run -d -p 8081:8080 --name studentmanagement-app oussa101/studentmanagement'
             }
         }
         
